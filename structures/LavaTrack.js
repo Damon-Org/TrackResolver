@@ -4,25 +4,25 @@ export default class LavaTrack {
      */
     constructor(data) {
         Object.assign(this, {
-            author: data.author,
-            info: data.info,
+            _author: data.author,
+            _info: data.info,
             track: data.track
         });
     }
 
     get author() {
-        return this.info.author;
+        return this._info.author;
     }
 
     get full_author() {
-        return this.author;
+        return this._author;
     }
 
     get title() {
-        return this.info.title;
+        return this._info.title;
     }
 
     isSeekable() {
-        return this.info.isSeekable;
+        return this._info.isSeekable;
     }
 }
