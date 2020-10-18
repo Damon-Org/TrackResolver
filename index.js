@@ -31,7 +31,9 @@ export default class TrackResolver extends BaseModule {
             const tracks = [];
 
             data.tracks.forEach((track) => tracks.push(new LavaTrack(track)));
-
+            
+            this._m.emit('playlistPlayed');
+            
             return tracks;
         }
         return new LavaTrack(data.tracks[0]);
