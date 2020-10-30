@@ -12,7 +12,6 @@ export default class TrackResolver extends BaseModule {
 
         this.register(TrackResolver, {
             name: 'trackResolver',
-            scope: 'global',
             requires: ['lavalink']
         });
     }
@@ -31,9 +30,9 @@ export default class TrackResolver extends BaseModule {
             const tracks = [];
 
             data.tracks.forEach((track) => tracks.push(new LavaTrack(track)));
-            
+
             this._m.emit('playlistPlayed');
-            
+
             return tracks;
         }
         return new LavaTrack(data.tracks[0]);
@@ -81,11 +80,5 @@ export default class TrackResolver extends BaseModule {
         }
 
         return this._resolve(urlInstance);
-    }
-
-    setup() {
-
-
-        return true;
     }
 }
