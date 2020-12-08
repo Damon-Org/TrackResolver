@@ -24,7 +24,7 @@ export default class TrackResolver extends BaseModule {
     async _resolve(url) {
         const data = await this.modules.lavalink.conn.getNode().rest.resolve(url.toString());
 
-        if (!data) return data;
+        if (!data) return { data };
 
         if (data.type === 'PLAYLIST') {
             const tracks = [];
@@ -33,9 +33,9 @@ export default class TrackResolver extends BaseModule {
 
             this._m.emit('playlistPlayed');
 
-            return tracks;
+            return { type: 'playlist', data: tracks };
         }
-        return new LavaTrack(data.tracks[0]);
+        return { type: 'song', data: new LavaTrack(data.tracks[0])};
     }
 
     /**
