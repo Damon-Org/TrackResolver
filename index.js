@@ -1,5 +1,6 @@
 import BaseModule from './structures/BaseModule.js'
 import LavaTrack from './structures/LavaTrack.js'
+import ResolvableTrack from './structures/ResolvableTrack.js'
 
 export default class TrackResolver extends BaseModule {
     _cache = new Map();
@@ -14,6 +15,8 @@ export default class TrackResolver extends BaseModule {
             name: 'trackResolver',
             requires: ['lavalink']
         });
+
+        Object.assign(this, { ResolvableTrack });
     }
 
     /**

@@ -1,7 +1,4 @@
-/**
- * The amount of time we should attempt to search for a match.
- */
-const retries = 10;
+import stringSimilarity from 'string-similarity'
 
 export default class ResolvableTrack {
     /**
@@ -9,11 +6,6 @@ export default class ResolvableTrack {
      * @type {boolean}
      */
     broken = false;
-    /**
-     * Internal counter of how many attempts have been made to match the track.
-     * @type {number}
-     */
-    _attempt = 0;
     /**
      * If the track is busy caching at the moment
      * @type {boolean}
@@ -76,9 +68,6 @@ export default class ResolvableTrack {
         return true;
     }
 
-    /**
-     * Check if the track has been cached/matched with a YouTube song/video.
-     */
     cached() {
         if (!this._cached && !this._caching) return false;
         if (this._cached) return true;
@@ -90,44 +79,36 @@ export default class ResolvableTrack {
                 this._call = null;
             }, 2e4);
 
-            this._call = () => {
-                resolve(true);
+            this._call = (result) => {
+                resolve(result);
 
                 clearTimeout(timeout);
-            };
+            }
         });
     }
 
-    /**
-     * Do not override this method
-     * Tries to match a YouTube song/video with the author/title getters from above.
-     * @returns {Promise<boolean>} False if no match, true otherwise.
-     */
     async getYouTubeEquiv() {
         if (this._cached) return true;
         if (this._caching) return this.cached();
 
         this._caching = true;
 
-        const searchId = await this._searchYouTube();
-        if (!searchId) {
-            this.broken = true;
+        const results = await this._searchYouTube();
 
-            return false;
-        }
+        if (!results) return this._markFailing();
 
-        const track = await this._resolve(searchId);
-        if (!track) {
-            this.broken = true;
+        // Sorts the array directly no need to assign to a new variable
+        if (!this._sortResults(results)) return this._markFailing();
 
-            return false;
-        }
+        // Loops over the results, break the moment a track works
+        this._track = await this._resolve(results);
 
-        this._track = track;
+        if (typeof this._track !== 'string') return this._markFailing();
 
+        this._caching = false;
         this._cached = true;
 
-        if (typeof this._call === 'function') this._call();
+        if (typeof this._call === 'function') this._call(true);
         this._call = null;
 
         return true;
@@ -135,37 +116,62 @@ export default class ResolvableTrack {
 
     /**
      * @private
-     * @param {string}
      */
-    async _resolve(youtubeId) {
-        let data;
+    _markFailing() {
+        this.broken = true;
 
-        do {
-            data = await this._m.modules.lavalink.conn.getNode().rest.resolve('https://youtu.be/'+ youtubeId);
-        } while (this._attempt++ < retries && (!data || data === true || data.tracks.length === 0));
+        if (typeof this._call === 'function') this._call(false);
+        this._call = null;
 
-        this._attempt = 0;
-
-        if (!data || data === true || data.tracks[0].track == true) return false;
-        return data.tracks[0].track;
+        return false;
     }
 
     /**
      * @private
      */
-    async _searchYouTube() {
-        let search;
-        do {
-            search = await this._m.modules.api.youtube.search(this.title);
-        } while (this._attempt++ < retries && (!search || search.length == 0 || !search[0].id || typeof search !== 'object'));
+    async _resolve(results) {
+        for (const result of results) {
+            const data = await this._m.modules.lavalink.conn.getNode().rest.resolve(result.shareLink);
 
-        this._attempt = 0;
+            if (!data || !data instanceof Object || data.tracks.length === 0) continue;
 
-        if (!search || search.length == 0 || !search[0].id || typeof search !== 'object') {
-            this.broken = true;
-
-            return false;
+            return data.tracks[0].track;
         }
-        return search[0].id;
+
+        return null;
+    }
+
+    /**
+     * @private
+     * @returns {Promise<Object>|null}
+     */
+    _searchYouTube() {
+        return this._m.modules.api.youtube.search(this.title);
+    }
+
+    /**
+     * This method will loop the array and try and find the best matching track for the search term
+     * @private
+     * @param {Object} results YouTube search results
+     */
+    _sortResults(results) {
+        if (!results instanceof Array || !results[0].title) return false;
+
+        const titles = [];
+
+        const regex = new RegExp(/(\(( )?)?( )?(?:original|official|music|video|version)(?:\s+(?:original|official|music|video|version))*( )?(( )?\))?/, 'ig');
+        results.forEach(
+            (result) => titles.push(result.title.replace(regex, ''))
+        );
+
+        const matches = stringSimilarity.findBestMatch(this.title, titles);
+
+        results.forEach(
+            (result, i) => result.weight = matches.ratings[i].rating + result.channel.verified ? .25 : 0
+        );
+
+        results.sort((e1, e2) => e1.weight > e2.weight ? -1 : 1);
+
+        return true;
     }
 }
